@@ -12,7 +12,7 @@ module C4Board exposing (
 import Array exposing (..)
 {- local imports -}
 import Model exposing (..)
-import Helpers exposing (..)
+import Helpers exposing (togglePlayer)
 
 
 {-

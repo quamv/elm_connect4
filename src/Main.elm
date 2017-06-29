@@ -1,17 +1,18 @@
-
+{-
+Connect4 in Elm
+-}
 module Main exposing (main)
 
-import Html exposing (..)
-import Keyboard exposing (..)
+{- system imports -}
+import Html exposing (program)
+import Keyboard exposing (KeyCode,downs)
 import Char exposing (toCode, fromCode)
-import String exposing (fromChar)
-import Set exposing (..)
-import Array exposing (..)
 
+{- local imports -}
 import Model exposing (..)
-import View exposing (..)
+import View exposing (view)
 import C4Board exposing (playerSelectsCol,newBoard,setSquareStateByIdx)
-import Helpers exposing (..)
+import Helpers exposing (togglePlayer)
 
 main =
     Html.program {

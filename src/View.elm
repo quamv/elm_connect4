@@ -3,7 +3,7 @@ view functions
 
 clueless groping here. constantly working against the flow.
 
-TODO: redesign entirely. Connect4 - Html only, no SVG
+TODO: redesign entirely. Connect4, should be html only, no SVG
 -}
 module View exposing (view)
 
@@ -20,6 +20,10 @@ import Set exposing (toList)
 import Model exposing (..)
 import C4Board exposing (..)
 
+squareHeight = 100
+squareWidth = 100
+svgwidth = squareWidth * cols
+svgheight = squareHeight * rows
 defaultbg = "beige"
 
 styles = {

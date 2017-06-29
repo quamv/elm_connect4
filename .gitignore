@@ -2,3 +2,7 @@
 elm-stuff
 # elm-repl generated files
 repl-temp-*
+# intellij
+.idea
+elm_connect4.iml
+
