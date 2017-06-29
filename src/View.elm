@@ -3,13 +3,13 @@ view functions
 
 clueless groping here. constantly working against the flow.
 
-TODO: redesign entirely
+TODO: redesign entirely. Connect4 - Html only, no SVG
 -}
 module View exposing (view)
 
 import Array exposing (..)
 import List exposing (..)
-import Html exposing (Html, div, p, text, a, button, h3, label, input, ul, fieldset, section, span,h1, li)
+import Html exposing (Html, div, p, text, a, button, h3, label, input, ul, fieldset, section, span, h1, li)
 import Html.Attributes exposing (style, href, target, type_, value, checked, placeholder)
 import Html.Events exposing (onClick, onInput)
 import Svg exposing (svg, rect, image, g, circle, line, text_, marker, path, defs)

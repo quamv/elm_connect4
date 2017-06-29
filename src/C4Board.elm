@@ -1,37 +1,56 @@
-module C4Board exposing (..)
-
 {-
-system imports
+Manages the Connect 4 board and detects winners
 -}
+
+module C4Board exposing (
+    playerSelectsCol
+    ,newBoard
+    ,setSquareStateByIdx
+    )
+
+{- system imports -}
 import Array exposing (..)
-
-{-
-local imports
--}
+{- local imports -}
 import Model exposing (..)
+import Helpers exposing (..)
+
 
 {-
-customizable game primary goal
+convenience alias
+-}
+type alias WinnerCheckFunction = Connect4Board -> Int -> SquareState -> Bool
+
+
+{-
+customizable game primary threshold
 -}
 connectWhat = 4
 
-type alias WinnerCheckFunction = Connect4Board -> Int -> SquareState -> Bool
-type alias DiagonalChecker = Connect4Board -> Int -> Int -> SquareState -> Int -> Int
+{-
+when looking for streaks of length 'connectWhat', the current idx counts as '1'.
+so in connect 4 that means, knowing what the current value is, we only need to
+search 3 more locations in either direction to find a streak of 4.
+-}
+len2Check : Int
+len2Check =
+    connectWhat - 1
+
 
 {-
-create a Connect 4 Board with the given number of rows and columns
+create a Connect 4 Board (an array) with the given number of rows and columns
 -}
 newBoard : Int -> Int -> Connect4Board
 newBoard boardrows boardcols  =
     Array.repeat (rows * cols) Nothing
 
 
+
 {-
-set the state of a square at the given row,col
+set the state of a square at the given raw index
 -}
-setSquareState : Int -> Int -> SquareState -> Connect4Board -> Connect4Board
-setSquareState row col squarestate board =
-    Array.set (row * cols + col) (Just squarestate) board
+setSquareStateByIdx : Int -> Maybe SquareState -> Connect4Board -> Connect4Board
+setSquareStateByIdx idx squarestate board =
+    Array.set idx squarestate board
 
 {-
 extract the row and column indexes from a raw index
@@ -47,12 +66,13 @@ helper to get the value stored at a given index rather than row,col
 getValByIdx : Int -> Connect4Board -> Maybe SquareState
 getValByIdx idx board =
     let
-        (row,col) = toColRow idx
+        (row,col) =
+            toColRow idx
     in
         getSquareState row col board
 
 {-
-core square state retrieval function. we have a case of overloaded semantic
+square state retrieval function. we have a case of overloaded semantic
 meaning here. a 'Nothing' can mean either that the value stored at the
 idx defined by row,col is Nothing, OR it can mean that row,col is
 outside the range of the array. this helper just cleans that up a bit for
@@ -112,20 +132,23 @@ select a square and check for a win
 weGotsASpot : Model -> Int -> (Model, Cmd Msg)
 weGotsASpot model idx =
     let
-        --newsquares = Array.set idx model.currentPlayer model.squares
-        newsquares = Array.set idx (Just model.currentPlayer) model.squares
-        newselections = List.append (List.singleton idx) model.selections
-        expectedstate = model.currentPlayer
-        nextplayer = case model.currentPlayer of
-            PlayerSide1 -> PlayerSide2
-            PlayerSide2 -> PlayerSide1
-        (nextstate, winner) =
-            case checkForWinner newsquares idx expectedstate of
+        newsquares =
+            -- set square state at idx, get updated board
+            setSquareStateByIdx idx (Just model.currentPlayer) model.squares
+
+        newselections =
+            -- record the current selection into the selections history list
+            List.append (List.singleton idx) model.selections
+
+        (nextGameState, maybeWinner) =
+            -- check for winners and return nextstate,winner tuple
+            case checkForWinner newsquares idx model.currentPlayer of
                 True ->
                     -- model.currentPlayer is the winner
                     (GameOver, Just model.currentPlayer)
 
                 False ->
+                    -- no winner, check if board is full
                     case List.length newselections == rows * cols of
                         True ->
                             -- board full. tie. no winners here today
@@ -138,9 +161,9 @@ weGotsASpot model idx =
         newmodel = {model |
             squares = newsquares
             , selections = newselections
-            , currentPlayer = nextplayer
-            , winner = winner
-            , gameState = nextstate
+            , currentPlayer = togglePlayer model.currentPlayer
+            , winner = maybeWinner
+            , gameState = nextGameState
             }
     in
         (newmodel, Cmd.none)
@@ -191,24 +214,19 @@ check for a horizontal win around the given idx
 checkHorizontalWin : Connect4Board -> Int -> SquareState -> Bool
 checkHorizontalWin board idx expectedstate =
     let
-        row = (idx // cols)
-        minidx = max (row * cols) (idx - 3)
-        maxidx = min (((row+1) * cols) - 1) (idx+3)
+        row =
+            (idx // cols)
+
+        minidx =
+            -- greater of the first idx of the row, or 3 to our left
+            max (row * cols) (idx - 3)
+
+        maxidx =
+            -- lesser of the last idx of the row, or 3 to our right
+            min (((row+1) * cols) - 1) (idx+3)
     in
         checkRange4Winner board minidx maxidx expectedstate 0
 
-
-{-
-check for a win on the given row... obsolete. replaced by checkHorizontalWinner
-which restricts the search more logically
--}
-checkRowWin : Connect4Board -> Int -> Int -> SquareState -> Bool
-checkRowWin board row idx expectedstate =
-    let
-        minidx = row * cols
-        maxidx = ((row+1) * cols) - 1
-    in
-        checkRange4Winner board minidx maxidx expectedstate 0
 
 
 {-
@@ -271,7 +289,7 @@ checkVerticalWinCore squarestates idx expectedstate count =
             Just st ->
                 -- cell at 'idx' is selected. check if it's expected player
                 if st == expectedstate then
-                    -- it was the expected player, increment and recurse
+                    -- it was the expected player, increment and keep checking
                     checkVerticalWinCore squarestates (idx + cols) expectedstate (count + 1)
                 else
                     -- wrong player and we out.
@@ -288,20 +306,15 @@ check the diagonals off of the current idx for a win
 checkDiagonalWin : Connect4Board -> Int -> SquareState -> Bool
 checkDiagonalWin board idx expectedstate =
     let
-        streak1 = diagonalPosSlope board idx expectedstate
-        streak2 = diagonalNegSlope board idx expectedstate
+        streak1 =
+            diagonalPosSlope board idx expectedstate
+
+        streak2 =
+            diagonalNegSlope board idx expectedstate
     in
         streak1 >= connectWhat
         || streak2 >= connectWhat
 
-{-
-the current idx counts as '1'. in connect 4, that means, knowing what the
-current value is, we only need to search 3 more locations in either direction
-to find a streak of 4.
--}
-len2Check : Int
-len2Check =
-    connectWhat - 1
 
 {-
 check for a win on the diagonal with positive slope left to right
@@ -309,9 +322,14 @@ check for a win on the diagonal with positive slope left to right
 diagonalPosSlope : Connect4Board -> Int -> SquareState -> Int
 diagonalPosSlope board idx expected =
     let
-        (row,col) = toColRow idx
-        downleft = diagonalDownLeft board (row+1) (col-1) expected 0
-        upright = diagonalUpRight board (row-1) (col+1) expected 0
+        (row,col) =
+            toColRow idx
+
+        downleft =
+            diagonalDownLeft board (row+1) (col-1) expected 0
+
+        upright =
+            diagonalUpRight board (row-1) (col+1) expected 0
     in
         downleft + upright + 1
 
@@ -322,9 +340,14 @@ check for a win on the diagonal with negative slope left to right
 diagonalNegSlope : Connect4Board -> Int -> SquareState -> Int
 diagonalNegSlope board idx expected =
     let
-        (row,col) = toColRow idx
-        upleft = diagonalUpLeft board (row-1) (col-1) expected 0
-        downright = diagonalDownRight board (row+1) (col+1) expected 0
+        (row,col) =
+            toColRow idx
+
+        upleft =
+            diagonalUpLeft board (row-1) (col-1) expected 0
+
+        downright =
+            diagonalDownRight board (row+1) (col+1) expected 0
     in
         upleft + downright + 1
 

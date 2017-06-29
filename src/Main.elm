@@ -1,5 +1,5 @@
 
-module ElmC4 exposing (main)
+module Main exposing (main)
 
 import Html exposing (..)
 import Keyboard exposing (..)
@@ -10,8 +10,8 @@ import Array exposing (..)
 
 import Model exposing (..)
 import View exposing (..)
-import C4Board exposing (..)
-
+import C4Board exposing (playerSelectsCol,newBoard,setSquareStateByIdx)
+import Helpers exposing (..)
 
 main =
     Html.program {
@@ -64,10 +64,13 @@ Otherwise store the key in our set of currently pressed keys
 keyDown : Keyboard.KeyCode -> Model -> (Model, Cmd Msg)
 keyDown k model =
     if model.gameState == GameOver then
+        -- game's over. ignore key press
         (model, Cmd.none)
     else if fromCode k == 'U' then
+        -- undo requested
         undo model
     else
+        -- see if it's a column # (1-7)
         case keyToCol <| fromCode k of
             Just col ->
                 -- user selected column 'col'
@@ -86,9 +89,10 @@ so we are translating the key pressed "down" 1 here
 keyToCol : Char -> Maybe Int
 keyToCol key1 =
     let
-        -- user/internal column numbers differ by 1. ie.
-        -- when user chooses column '1', internally that means col 0
-        key = fromCode ((toCode key1) - 1)
+        key =
+            -- user/internal column numbers differ by 1. ie.
+            -- when user chooses column '1', internally that means col 0
+            fromCode ((toCode key1) - 1)
     in
         if key >= '0' && key <= '6' then
             Just <| (toCode key) - (toCode '0')
@@ -108,31 +112,17 @@ undo model =
             (model, Cmd.none)
 
         head::taillist ->
+            -- at least one selection available to  undo
             let
-                newselections =
-                    -- keep the rest of the list
-                    taillist
-
                 newsquares =
                     -- clear the most recently selected square
-                    Array.set head Nothing model.squares
-
-                nextplayer =
-                    -- each undo should swap the currentplayer
-                    togglePlayer model.currentPlayer
+                    -- return updated board
+                    setSquareStateByIdx head Nothing model.squares
             in
                 ({model |
-                    selections = newselections
-                    ,currentPlayer = nextplayer
+                    selections = taillist
+                    ,currentPlayer = togglePlayer model.currentPlayer
                     ,squares = newsquares}
                  , Cmd.none)
 
 
-{-
-swap PlayerSide1->PlayerSide2 and vice versa
--}
-togglePlayer : PlayerSide -> PlayerSide
-togglePlayer player =
-    case player of
-        PlayerSide1 -> PlayerSide2
-        PlayerSide2 -> PlayerSide1
