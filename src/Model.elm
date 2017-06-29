@@ -1,7 +1,7 @@
 module Model exposing (..)
 
 import Array exposing (Array)
-import Keyboard exposing (..)
+import Keyboard exposing (KeyCode)
 
 type GameState = Normal | GameOver
 type Msg = KeyDownMsg Keyboard.KeyCode
